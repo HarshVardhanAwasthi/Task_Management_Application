@@ -11,8 +11,10 @@ app.use(express.json());
 app.use(cookieParser());
 
 const authRouter=require("./routes/auth.js");
+const taskRouter=require("./routes/task.js")
 
 app.use("/",authRouter);
+app.use("/",taskRouter);
 
 connectDB().then(()=>{
     console.log("database connection is succesfull!!")

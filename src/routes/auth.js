@@ -5,36 +5,45 @@ const authRouter = express.Router();
 const bcrypt = require("bcrypt");
 const User = require("../model/user");
 
-
 authRouter.post("/signup", async (req, res) => {
-  try {
-
-    const { firstName, lastName, emailId, password, age, gender } = req.body;
-
-    const hashpass = await bcrypt.hash(password, 10);
-
-    const savedUser = new User({
-      firstName,
-      lastName,
-      emailId,
-      password: hashpass,
-      age,
-      gender,
-    });
-
-    const token = await savedUser.getJWT(); 
-
-    res.cookie("token", token, { expires: new Date(Date.now() + 90000000) }); 
-    if (savedUser) {
-      await savedUser.save();
-      res.json({ message: "account created successfully", data: savedUser });
-    } else {
-      res.status(404).send("not a valid details");
+    try {
+      const { userName, firstName, lastName, emailId, password } = req.body;
+  
+      // Check if the email already exists
+      const existingUser = await User.findOne({ emailId });
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+  
+      // Hash the password
+      const hashPass = await bcrypt.hash(password, 10);
+  
+      // Create the new user
+      const newUser = new User({
+        userName,
+        firstName,
+        lastName,
+        emailId,
+        password: hashPass,
+      });
+  
+      // Save the user to the database
+      await newUser.save();
+  
+      // Generate JWT Token
+      const token = await newUser.getJWT();
+  
+      // Set the token as a cookie (Optional: if you want to send the token in cookies)
+      res.cookie("token", token, { expires: new Date(Date.now() + 90000000), httpOnly: true });
+  
+      // Respond with the new user data
+      res.status(201).json({ message: "User created successfully", data: newUser });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: error.message });
     }
-  } catch (error) {
-    res.status(400).send(error.message);
-  }
-});
+  });
+  
 
 authRouter.post("/login", async (req, res) => {
   const { emailId, password } = req.body;
@@ -45,14 +54,14 @@ authRouter.post("/login", async (req, res) => {
     if (!user) {
       throw new Error("Invalid Credential");
     }
-    const ispass = await user.validatePassword(password); //we are using schema methods to make code more readable and encapsulate
+    const ispass = await user.validatePassword(password); 
 
-    //writing await is very important otherwise ispass it will not work and user can login with wrong password also ,as as you come on this function it will go there to compare and callstack mein synchronous kaam hota isko bhejdega eventloop ke paas aur aage bdh jaega jab compre hoke result milga tb tk kaam(login) ho chuka hoga...
 
     if (ispass) {
-      const token = await user.getJWT(); //we are using schema methods to make code more readable and encapsulate
-
-      res.cookie("token", token, { expires: new Date(Date.now() + 900000) }); //Cookies are commonly used to store the JWT token on the client side.
+      const token = await user.getJWT(); 
+        
+      res.cookie("token", token, { expires: new Date(Date.now() + 900000) }); 
+      console.log("Cookie set:", token);
       res.send(user);
     } else {
       throw new Error("Invalid Credential");
